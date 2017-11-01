@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>日历</title>
+    <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://cdn.bootcss.com/moment.js/2.19.0/moment.min.js"></script>
+    <script src="https://cdn.bootcss.com/moment.js/2.19.0/locale/zh-cn.js"></script>
+    <script src="./calendar.js"></script>
+    <link rel="stylesheet" type="text/css" href="./style.1.css" />
+</head>
+
+<body>
+    <div class="wrapper">
+        <div class="header">
+            <div class="group " id="yearGroup">
+                <button class="prev">&lt;</button>
+                <div class="center"><input id="year" readonly/></div>
+                <button class="next">&gt;</button>
+            </div>
+            <div class="group" id="monthGroup">
+                <button class="prev">&lt;</button>
+                <div class="center"><input id="month" readonly /></div>
+                <button class="next">&gt;</button>
+            </div>
+            <button id="backToday">回到今天</button>
+        </div>
+
+        <div class="section">
+            <div class="top"></div>
+            <div class="main"></div>
+        </div>
+        <div class="footer">
+
+        </div>
+    </div>
+</body>
+<script>
+    $(function() {
+        const minYear = 1901; // 允许的最早年份  (！！！阴历插件支持的日期为1900.1.31~2100.12.31)
+        const maxYear = 2100; // 允许的最晚年份
+        const weekArr = ['日', '一', '二', '三', '四', '五', '六'];
+        let weekItems = ''; // 日期dom
+        const nullItem = `<div class="item"></div>`; // 空格子模板
+        const $yearInp = $('#year') // 年份显示框
+        const $yearPrevBtn = $('#yearGroup .prev'); // 前一年
+        const $yearNextBtn = $('#yearGroup .next'); // 后一年
+        const $monthInp = $('#month') // 月份显示框
+        const $monthPrevBtn = $('#monthGroup .prev'); // 前一月
+        const $monthNextBtn = $('#monthGroup .next'); // 后一月
+        const calender = new Calendar(); // 实例化日历函数
+        // 设置星期
+        for (let i = 0; i < weekArr.length; i++) {
+            weekItems += `<div class="item week">${weekArr[i]}</div>`;
+        }
+        // 前一年点击事件
+        $yearPrevBtn.click(function() {
+            let val = $yearInp.val();
+            // 判断是不是允许的最小年份，如果是讲按钮不可用
+            if (minYear && val <= minYear + 1) {
+                $yearPrevBtn.attr('disabled', true);
+            }
+            //判断后一年按钮是不是不可用状态，如果是则恢复可用
+            if ($yearNextBtn.attr('disabled')) {
+                $yearNextBtn.attr('disabled', false);
+            }
+            //设置数据年份
+            calender.setYear(val - 1);
+            // 更新日历
+            setCalender();
+        });
+        // 后一年按钮点击事件
+        $yearNextBtn.click(function() {
+            // 将字符串转换为数字
+            let val = +$yearInp.val();
+            if (maxYear && val >= maxYear - 1) {
+                $yearNextBtn.attr('disabled', true);
+            }
+            if ($yearPrevBtn.attr('disabled')) {
+                $yearPrevBtn.attr('disabled', false);
+            }
+            calender.setYear(val + 1);
+            setCalender();
+        });
+        // 前一个月按钮事件
+        $monthPrevBtn.click(function() {
+            let val = $monthInp.val() - 1;
+            if (val <= 1) {
+                $monthPrevBtn.attr('disabled', true);
+            }
+            if ($monthNextBtn.attr('disabled')) {
+                $monthNextBtn.attr('disabled', false);
+            }
+            calender.setMonth(val - 1);
+            setCalender();
+        });
+        // 后一个月按钮事件
+        $monthNextBtn.click(function() {
+            let val = +$monthInp.val() - 1;
+            calender.setMonth(val + 1);
+            setCalender();
+            if (val >= 10) {
+                $monthNextBtn.attr('disabled', true);
+            }
+            if ($monthPrevBtn.attr('disabled')) {
+                $monthPrevBtn.attr('disabled', false);
+            }
+        });
+
+        // 返回今天按钮事件
+        $('#backToday').click(function() {
+            calender.setYear(moment().year());
+            calender.setMonth(moment().month());
+            setCalender();
+            footerReset();
+        });
+
+        // 日历日期点击事件，添加边框，改变底部信息
+        $('.main').on('click', '.inner', function() {
+            // 将日期数据转换为对象
+            const obj = JSON.parse($(this).attr('data-calendar'));
+            // 给点击的日期添加边框，其他的日期移除边框
+            $(this).addClass('selected').parent().siblings().find('.inner').removeClass('selected');
+            // 更新底部信息
+            const str = `
+                <div>公历：${obj.cYear}年${obj.cMonth}月${obj.cDay}日  ${obj.ncWeek} ${obj.astro}</div>
+                <div>农历：${obj.gzYear}年 ${obj.gzMonth}月 ${obj.gzDay}日 ${obj.IMonthCn}${obj.IDayCn} 【${obj.Animal}】${obj.Term ? obj.Term : ''}</div>
+            `;
+            $('.footer').html(str);
+        });
+        // 初始化函数，并执行
+        (function init() {
+
+            setCalender();
+            footerReset();
+        })()
+
+        // 底部信息重置为当天日期信息
+        function footerReset() {
+            const obj = calendar.solar2lunar(moment().year(), moment().month() + 1, moment().date())
+            const str = `
+            <div>公历：${obj.cYear}年${obj.cMonth}月${obj.cDay}日  ${obj.ncWeek} ${obj.astro}</div>
+            <div>农历：${obj.gzYear}年 ${obj.gzMonth}月 ${obj.gzDay}日 ${obj.IMonthCn}${obj.IDayCn} 【${obj.Animal}】${obj.Term ? obj.Term : ''}</div>
+            `;
+            $('.footer').html(str);
+        }
+
+        // 设置日历
+        function setCalender() {
+            const offset = calender.firstDayInfo().offset; // 选择月份当月的偏移量，（空出几格）
+            const daysInMonth = calender.daysInMonth(); // 选择月份当月的总天数
+            const lastOffset = calender.lastDayInfo().offset; // 选择当月月份后面空格个数
+            let nullItemTotal = ''; // 1号之前空格dom
+            let lastNullItemTotal = ''; // 最后一天之后的空格dom
+            let dayItems = ''; // 日期dom
+            let currentYear = calender.year; // 当前选择的年份
+            let currentMonth = calender.month; // 当前选择的月份
+            let currentDate = calender.date; // 当前选择的日期
+
+            // 根据偏移量组装1号之前的空格dom
+            for (let i = 0; i < offset; i++) {
+                nullItemTotal += nullItem;
+            }
+            // 根据偏移量组装后面空格dom
+            for (let i = 0; i < lastOffset; i++) {
+                lastNullItemTotal += nullItem;
+            }
+            // 组装日期的dom
+            for (let i = 1; i <= daysInMonth; i++) {
+                // 通过插件计算出农历信息
+                const lunarCalendarObj = calendar.solar2lunar(currentYear, currentMonth + 1, i);
+                // 农历显示的日期。节气，月份，日期，优先级为节气，月份，日期
+                const lunarCalendarDate = lunarCalendarObj.Term ? lunarCalendarObj.Term : lunarCalendarObj.IDayCn === '初一' ? lunarCalendarObj.IMonthCn : lunarCalendarObj.IDayCn;
+                // 将信息转换为字符串，用于存档当前日期的属性中，
+                const objStr = JSON.stringify(lunarCalendarObj);
+                let today = '';
+                // 判断是不是当天，如果是添加样式
+                if (currentYear === moment().year() && currentMonth === moment().month() && i === moment().date()) {
+                    today = 'today';
+                }
+                // 组装日期dom
+                dayItems += `
+                <div class="item">
+                    <div class="inner ${today}" data-calendar=${objStr}>
+                        <span>${i}</span>
+                        <span>${lunarCalendarDate}</span>
+                    </div>
+                </div>
+            `
+            }
+            // 更新显示年份
+            $yearInp.val(currentYear);
+            // 更新显示月份
+            $monthInp.val(currentMonth + 1);
+            // 将dom字符串添加到真实dom中
+            $(".section .top").html(weekItems);
+            $(".section .main").html(nullItemTotal + dayItems + lastNullItemTotal);
+        }
+    })
+
+    /**
+     * 日历工具构造函数
+     * */
+    function Calendar(y, m, d) {
+        //如果没有参数，则为当前日期
+        this.year = y !== undefined ? y : moment().get('year');
+        this.month = m !== undefined ? y : moment().get('month');
+        this.date = d !== undefined ? y : moment().get('date');
+    }
+
+    /***
+     * 当月第一天的信息
+     * */
+    Calendar.prototype.firstDayInfo = function() {
+            const mObj = moment([this.year, this.month]);
+            return {
+                obj: mObj,
+                day: mObj.day(),
+                offset: mObj.day()
+            }
+        }
+        /***
+         * 当月最后一天的信息
+         * */
+    Calendar.prototype.lastDayInfo = function() {
+            // const date = new Date(this.y, this.m, 1);
+            const mObj = moment([this.year, this.month, this.daysInMonth()]);
+            return {
+                obj: mObj,
+                day: mObj.day(),
+                offset: 6 - mObj.day()
+            }
+        }
+        /**
+         * 计算当月的天数
+         */
+    Calendar.prototype.daysInMonth = function() {
+            return moment([this.year, this.month]).daysInMonth();
+        }
+        /**
+         * 设置月份
+         */
+    Calendar.prototype.setMonth = function(m) {
+            this.month = m;
+        }
+        /**
+         * 设置年份
+         */
+    Calendar.prototype.setYear = function(y) {
+        this.year = y;
+    }
+</script>
+
+</html>
